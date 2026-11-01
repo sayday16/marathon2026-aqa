@@ -28,7 +28,7 @@ public sealed class RestaurantApi(ApiClient client)
         client.PostAsync("reservations", new { tableId, startTime = startUtc, endTime = endUtc, guestCount }, token);
 
     public Task<ApiResponse> CancelReservationAsync(string token, string reservationId) =>
-        client.DeleteAsync("reservations", new { reservationId }, token);
+        client.DeleteAsync("reservations", new { id = reservationId }, token);
 
     public Task<ApiResponse> MyReservationsAsync(string token) => client.GetAsync("reservations", token);
 

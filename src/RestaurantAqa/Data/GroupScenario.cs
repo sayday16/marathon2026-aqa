@@ -83,14 +83,23 @@ public sealed class GroupScenario : IAsyncDisposable
         {
             if (HasOrder)
             {
-                await _api.CancelOrderAsync(Owner.Token, ReservationId);
+                Report("order", await _api.CancelOrderAsync(Owner.Token, ReservationId));
             }
 
-            await _api.CancelReservationAsync(Owner.Token, ReservationId);
+            Report("reservation", await _api.CancelReservationAsync(Owner.Token, ReservationId));
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
             TestContext.Progress.WriteLine($"Cleanup of reservation {ReservationId} failed: {exception.Message}");
+        }
+    }
+
+    // A cleanup that does not work leaves reservations behind and fills the table, so it must never fail silently.
+    private void Report(string what, ApiResponse response)
+    {
+        if (response.Status is < 200 or >= 300)
+        {
+            TestContext.Progress.WriteLine($"Cleanup of the {what} of reservation {ReservationId} failed: {response.Describe()}");
         }
     }
 
@@ -117,7 +126,7 @@ public sealed class GroupScenario : IAsyncDisposable
     {
         ApiResponse? last = null;
         int gatewayErrors = 0;
-        for (int attempt = 0; attempt < 12; attempt++)
+        for (int attempt = 0; attempt < 20; attempt++)
         {
             DateTime start = SlotAllocator.RandomSlotStart();
             last = await api.CreateReservationAsync(owner.Token, catalog.TableId, start, start + SlotAllocator.Duration, SlotAllocator.GuestCount);

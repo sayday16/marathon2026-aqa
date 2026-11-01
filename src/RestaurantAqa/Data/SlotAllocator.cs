@@ -2,7 +2,8 @@ namespace RestaurantAqa.Data;
 
 /// <summary>
 /// Picks reservation slots that do not collide with other tests running in parallel (or with leftovers of earlier
-/// runs): a random day 3-60 days ahead and one of six two-hour slots. A collision is retried by the caller.
+/// runs): a random day 3-400 days ahead and one of six two-hour slots. A collision is retried by the caller.
+/// The wide range keeps the table free even if the environment still holds reservations left by earlier runs.
 /// </summary>
 public static class SlotAllocator
 {
@@ -14,7 +15,7 @@ public static class SlotAllocator
 
     public static DateTime RandomSlotStart()
     {
-        DateTime day = DateTime.UtcNow.Date.AddDays(Random.Shared.Next(3, 61));
+        DateTime day = DateTime.UtcNow.Date.AddDays(Random.Shared.Next(3, 401));
         return DateTime.SpecifyKind(day.AddHours(StartHours[Random.Shared.Next(StartHours.Length)]), DateTimeKind.Utc);
     }
 }
