@@ -93,6 +93,19 @@ public sealed class ApiClient : IDisposable
     /// <summary>Sends an already serialized (possibly malformed) body.</summary>
     public async Task<ApiResponse> SendRawAsync(HttpMethod method, string path, string rawBody, string? bearer)
     {
+        // The backend sometimes answers a temporary 5xx (limits of the Lambda and DynamoDB): reading is safe to repeat, writing is not.
+        ApiResponse response = await SendOnceAsync(method, path, rawBody, bearer);
+        for (int attempt = 1; method == HttpMethod.Get && response.Status >= 500 && attempt <= 3; attempt++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(attempt));
+            response = await SendOnceAsync(method, path, rawBody, bearer);
+        }
+
+        return response;
+    }
+
+    private async Task<ApiResponse> SendOnceAsync(HttpMethod method, string path, string rawBody, string? bearer)
+    {
         using var request = new HttpRequestMessage(method, path.TrimStart('/'));
         if (!string.IsNullOrEmpty(rawBody))
         {

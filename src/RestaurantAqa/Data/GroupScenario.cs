@@ -137,9 +137,10 @@ public sealed class GroupScenario : IAsyncDisposable
             }
 
             // A gateway timeout (504) of a cold Lambda is transient: try again, in another slot, because the first request may have saved a reservation.
-            if (last.Status >= 500 && ++gatewayErrors <= 2)
+            if (last.Status >= 500 && ++gatewayErrors <= 4)
             {
                 TestContext.Progress.WriteLine($"POST /reservations -> HTTP {last.Status}, trying another slot.");
+                await Task.Delay(TimeSpan.FromSeconds(2 * gatewayErrors));
                 continue;
             }
 
