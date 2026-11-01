@@ -69,6 +69,18 @@ public static class UserFactory
             Assert.Ignore("WAITER_EMAIL and WAITER_PASSWORD are not configured: waiter scenarios are skipped.");
         }
 
-        return SignInAsync(api, settings.WaiterEmail!, settings.WaiterPassword!);
+        return SignInAsWaiterAsync(api, settings.WaiterEmail!, settings.WaiterPassword!);
+    }
+
+    private static async Task<TestUser> SignInAsWaiterAsync(RestaurantApi api, string email, string password)
+    {
+        TestUser user = await SignInAsync(api, email, password);
+        // The backend lets only the Cognito group Waiter read other customers' orders: say clearly when the account is not one.
+        if (!string.Equals(user.Role, "Waiter", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Fail($"WAITER_EMAIL is not a waiter: the account signs in with the role '{user.Role}', so waiter scenarios can not work. Use the email and password of a waiter of the tested location.");
+        }
+
+        return user;
     }
 }
