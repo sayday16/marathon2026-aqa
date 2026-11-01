@@ -118,6 +118,12 @@ UI_BASE_URL=https://<id>.cloudfront.net BROWSER_CHANNEL=chrome dotnet test --fil
    Запуск з'явиться в розділі Launches проєкту, із результатами кожного тесту й вкладеннями.
 3. У CI Report Portal потрібно розмістити там, куди дістанеться runner (хмарний сервер із публічною адресою), і задати змінні репозиторію `REPORTPORTAL_ENABLED=true`, `REPORTPORTAL_URL`, `REPORTPORTAL_PROJECT` та секрет `REPORTPORTAL_API_KEY`. Без них крок просто пропускається.
 
+**Результат у хмарі.** Пайплайн у GitHub Actions надсилає звіт у demo.reportportal.io (проєкт `sayday16_personal`). Запуск «AQA main #6» (69 із 69 тестів пройшли, suite `group-pre-order`, 3 хв 7 с):
+
+![Launch в Report Portal: 69 passed](docs/report-portal-launch.png)
+
+Демо-портал стирає дані раз на добу, тому знімок збережено в репозиторії; новий звіт з'являється після кожного запуску пайплайна.
+
 ## CI pipeline (хмара)
 
 Пайплайн `.github/workflows/aqa.yml` виконується в GitHub Actions (хмарний runner). Запуск: push у `main`, pull request, щоночі о 05:00 UTC і вручну (`workflow_dispatch` з необов'язковим NUnit-фільтром, наприклад `Category=L2`).
