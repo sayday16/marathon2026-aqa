@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/reportportal/agent-net-docs/master/src/ReportPortal.config.schema",
+  "enabled": false,
+  "server": {
+    "url": "http://localhost:8080",
+    "project": "default_personal"
+  },
+  "launch": {
+    "name": "Restaurant AQA",
+    "description": "End-to-end tests of the group pre-order (API and UI)",
+    "attributes": [ "suite:group-pre-order" ]
+  }
+}

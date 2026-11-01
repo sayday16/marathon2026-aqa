@@ -1,0 +1,16 @@
+# build output
+bin/
+obj/
+TestResults/
+
+# local configuration and secrets: never commit
+.env
+*.env.local
+
+# artifacts of test runs (traces, screenshots, videos, reports)
+artifacts/
+
+# IDE
+.vs/
+.idea/
+*.user

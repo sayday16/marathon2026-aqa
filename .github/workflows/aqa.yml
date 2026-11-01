@@ -1,0 +1,114 @@
+name: AQA
+
+# End-to-end tests of the group pre-order (API + UI) against the deployed application.
+# Configure the repository first (Settings > Secrets and variables > Actions), see README "CI pipeline".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'NUnit filter, e.g. "Category=L1", "Category=API", "Category!=Slow". Empty runs everything.'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 5 * * *'
+
+concurrency:
+  group: aqa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      UI_BASE_URL: ${{ vars.UI_BASE_URL }}
+      TABLE_ID: ${{ vars.TABLE_ID }}
+      WAITER_EMAIL: ${{ secrets.WAITER_EMAIL }}
+      WAITER_PASSWORD: ${{ secrets.WAITER_PASSWORD }}
+      RECORD_VIDEO: '1'
+      ARTIFACTS_DIR: ${{ github.workspace }}/artifacts
+      # Report Portal is optional: the adapter stays disabled unless REPORTPORTAL_ENABLED is "true".
+      ReportPortal_Enabled: ${{ vars.REPORTPORTAL_ENABLED || 'false' }}
+      ReportPortal_Server_Url: ${{ vars.REPORTPORTAL_URL }}
+      ReportPortal_Server_Project: ${{ vars.REPORTPORTAL_PROJECT || 'default_personal' }}
+      ReportPortal_Server_Authentication_Uuid: ${{ secrets.REPORTPORTAL_API_KEY }}
+      ReportPortal_Launch_Name: AQA ${{ github.ref_name }} #${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the configuration
+        run: |
+          missing=0
+          for name in API_BASE_URL UI_BASE_URL; do
+            if [ -z "${!name}" ]; then echo "::error::Repository variable $name is not set (Settings > Secrets and variables > Actions > Variables)"; missing=1; fi
+          done
+          exit $missing
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore and build
+        run: dotnet build -c Release
+
+      - name: Install the browser
+        run: pwsh src/RestaurantAqa/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      # A failing test must not stop the pipeline: reports and artifacts are published below, and the job is marked failed at the end.
+      - name: Run the tests
+        id: tests
+        continue-on-error: true
+        env:
+          TEST_FILTER: ${{ github.event.inputs.filter }}
+        run: |
+          args=()
+          if [ -n "${TEST_FILTER}" ]; then args+=(--filter "${TEST_FILTER}"); fi
+          dotnet test --no-build -c Release "${args[@]}" \
+            --results-directory TestResults \
+            --logger "trx;LogFileName=results.trx" \
+            --logger "html;LogFileName=report.html"
+
+      - name: Summarize the results
+        if: always()
+        run: |
+          if [ -f TestResults/results.trx ]; then
+            counters=$(grep -o '<Counters [^>]*>' TestResults/results.trx | head -1)
+            echo "### AQA results" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$counters" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No TRX report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload traces, screenshots and videos of failed UI tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-failure-artifacts
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Fail the job if the tests failed
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "::error::Some tests failed, see the test-reports and ui-failure-artifacts artifacts."
+          exit 1
