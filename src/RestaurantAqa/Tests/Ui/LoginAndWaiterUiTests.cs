@@ -57,9 +57,7 @@ public class WaiterUiTests : UiTestBase
         await UiAuth.SignInAsync(Context, waiter);
 
         var reservations = new WaiterReservationsPage(Page);
-        await reservations.OpenAsync();
-        Microsoft.Playwright.ILocator card = reservations.ReservationOn(scenario.Reservation.StartTime);
-        await Expect(card).ToHaveCountAsync(1);
+        Microsoft.Playwright.ILocator card = await reservations.OpenWithPreOrderAsync(scenario.Reservation.StartTime);
         await reservations.PreOrderButton(card).ClickAsync();
 
         var preOrder = new WaiterPreOrderPage(Page);

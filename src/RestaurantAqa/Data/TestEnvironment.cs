@@ -45,11 +45,22 @@ public static class UserFactory
 
     public static async Task<TestUser> CreateCustomerAsync(RestaurantApi api, string firstName = "Aqa", string lastName = "Owner")
     {
-        string email = $"{EmailPrefix}{Guid.NewGuid():N}@example.com";
-        // "Aqa#1" guarantees an upper case letter, lower case letters, a digit and a special character; 12 characters in total.
-        string password = $"Aqa#1{Guid.NewGuid():N}"[..12];
+        ApiResponse response;
+        string email;
+        string password;
+        int attempt = 0;
 
-        (await api.RegisterAsync(firstName, lastName, email, password)).EnsureSuccess();
+        do
+        {
+            email = $"{EmailPrefix}{Guid.NewGuid():N}@example.com";
+            // "Aqa#1" guarantees an upper case letter, lower case letters, a digit and a special character; 12 characters in total.
+            password = $"Aqa#1{Guid.NewGuid():N}"[..12];
+            response = await api.RegisterAsync(firstName, lastName, email, password);
+            // A temporary server error (HTTP 5xx) may have created the account: another unique email is tried instead of the same one.
+        }
+        while (response.Status >= 500 && ++attempt < 3);
+
+        response.EnsureSuccess();
         return await SignInAsync(api, email, password);
     }
 

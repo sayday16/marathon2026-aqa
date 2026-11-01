@@ -20,6 +20,30 @@ public sealed class WaiterReservationsPage(IPage page)
         });
 
     public ILocator PreOrderButton(ILocator card) => card.GetByRole(AriaRole.Button, new() { Name = "Pre-order", Exact = true });
+
+    /// <summary>
+    /// Opens the list and returns the card of the reservation once it offers its pre-order. The list loads the pre-order of every
+    /// reservation with a request of its own, and a request answered with a temporary error leaves "0 dishes" until the page
+    /// is loaded again: a few reloads are part of the scenario, not a way to hide a failure.
+    /// </summary>
+    public async Task<ILocator> OpenWithPreOrderAsync(DateTime startUtc)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            await OpenAsync();
+            ILocator card = ReservationOn(startUtc);
+            await Assertions.Expect(card).ToHaveCountAsync(1);
+
+            try
+            {
+                await Assertions.Expect(PreOrderButton(card)).ToBeVisibleAsync(new() { Timeout = 10_000 });
+                return card;
+            }
+            catch (PlaywrightException) when (attempt < 3)
+            {
+            }
+        }
+    }
 }
 
 /// <summary>The waiter's view of the pre-order of one reservation: /waiter-pre-order.</summary>
