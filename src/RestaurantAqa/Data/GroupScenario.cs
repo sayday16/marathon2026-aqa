@@ -116,6 +116,7 @@ public sealed class GroupScenario : IAsyncDisposable
     private static async Task<ReservationDto> CreateReservationAsync(RestaurantApi api, TestUser owner, CatalogData catalog)
     {
         ApiResponse? last = null;
+        int gatewayErrors = 0;
         for (int attempt = 0; attempt < 12; attempt++)
         {
             DateTime start = SlotAllocator.RandomSlotStart();
@@ -126,7 +127,14 @@ public sealed class GroupScenario : IAsyncDisposable
                 return last.Json<ReservationDto>();
             }
 
-            // The only expected failure is a collision with another reservation of the same table: try another slot.
+            // A gateway timeout (504) of a cold Lambda is transient: try again, in another slot, because the first request may have saved a reservation.
+            if (last.Status >= 500 && ++gatewayErrors <= 2)
+            {
+                TestContext.Progress.WriteLine($"POST /reservations -> HTTP {last.Status}, trying another slot.");
+                continue;
+            }
+
+            // The only other expected failure is a collision with another reservation of the same table: try another slot.
             if (last.Status != 400 || !last.ErrorText.Contains("overlap", StringComparison.OrdinalIgnoreCase))
             {
                 break;
